@@ -115,7 +115,7 @@ class Cave:
         Print details of the cave, including description, linked caves,
         and any character or item present.
         """
-        print(f"The {self.name}")
+        print(f"The {self.name}.")
         print(self.description)
         for direction, cave in self.linked_caves.items():
             print(f"The {cave.get_name()} is {direction}.")

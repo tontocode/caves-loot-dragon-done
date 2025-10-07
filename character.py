@@ -6,10 +6,11 @@ def death_screen():
     print("YOU HAVE DIED")
     print("***")
 
+
 class Character:
     """Base class for all characters in the game."""
 
-    def __init__(self, name, description):
+    def __init__(self, name: str, description: str):
         """
         Initialize a Character object.
 
@@ -21,7 +22,7 @@ class Character:
         self.description = description
         self.conversation = None
 
-    def set_conversation(self, conversation):
+    def set_conversation(self, conversation: str):
         """
         Set the character's conversation string.
 
@@ -50,14 +51,16 @@ class Character:
 class Person(Character):
     """Class for non-enemy people in the game."""
 
-    def __init__(self, *, name, description, conversations, quest_items):
+    def __init__(
+        self, *, name: str, description: str, conversations: dict, quest_items: list
+    ):
         """
         Initialize a Person object.
 
         Args:
             name (str): Person's name.
             description (str): Description of the person.
-            conversations (dict): Conversation states. 
+            conversations (dict): Conversation states.
                 (strings pre_gift, grateful, ungrateful, post_gift as keys)
             quest_items (list): The item the person wants, the item given in exchange.
         """
@@ -68,7 +71,7 @@ class Person(Character):
         self.reward_item = quest_items[1]
         self.affinity = 0
 
-    def give(self, item_name):
+    def give(self, item_name: str):
         """
         Give an item to the person and update conversation/affinity.
 
@@ -89,12 +92,12 @@ class Person(Character):
         self.set_conversation(self.conversation_dict["pre_gift"])
         return None
 
-    def fight(self, combat_item):
+    def fight(self, combat_item: str):
         """
         Print a message when the player tries to fight a person.
 
         Args:
-            combat_item (str): Item used to fight.
+            combat_item (str): Name of item used to fight.
         Returns:
             bool: True always (for game logic).
         """
@@ -105,14 +108,14 @@ class Person(Character):
 class Enemy(Character):
     """Class for enemy characters in the game."""
 
-    def __init__(self, name, description, weakness, drop):
+    def __init__(self, name: str, description: str, weakness, drop):
         """
         Initialize an Enemy object.
 
         Args:
             name (str): Enemy's name.
             description (str): Description of the enemy.
-            weakness (str): Item name that defeats the enemy.
+            weakness (str): Name of the item that defeats the enemy.
             drop (Item): Item dropped by the enemy when defeated.
         """
         super().__init__(name, description)
@@ -124,24 +127,25 @@ class Enemy(Character):
         """Return the enemy's weakness item name."""
         return self.weakness
 
-    def fight(self, combat_item):
+    def fight(self, combat_item: str):
         """
         Fight the enemy using a combat item.
 
         Args:
-            combat_item (str): Item used to fight.
+            combat_item (str): Name of item used to fight.
         Returns:
             Item or bool: Item if defeated, False if player dies.
         """
         if combat_item.lower() == self.weakness:
-            print(f"You fend {self.name} off with the {combat_item}")
-            print(f"You have obtained {self.drop.get_name()}!")
+            print(f"You fend {self.name} off with the {combat_item}.")
+            if self.drop:
+                print(f"You have obtained {self.drop.get_name()}!")
             return self.drop
         print(f"{self.name} swallows you, little wimp.")
         death_screen()
         return False
 
-    def give(self, give_item_name):
+    def give(self, give_item_name: str):
         """
         Attempt to give an item to an enemy (results in death).
 
@@ -158,18 +162,58 @@ class Enemy(Character):
         death_screen()
         return False
 
+
 class Boss(Enemy):
     """Class for the boss enemy (dragon)."""
 
-    def __init__(self, name, description, weakness, drop):
+    def __init__(self, name, description, weakness: list[str], drop=None):
         """
         Initialize a Boss object.
 
         Args:
             name (str): Boss's name.
             description (str): Description of the boss.
-            weakness (str): Item name that defeats the boss.
-            drop (Item): Item dropped by the boss when defeated.
+            weaknesses (list of strings): Item names that defeat the boss.
         """
         super().__init__(name, description, weakness, drop)
+        self.weakness.sort()
         self.is_boss = True
+
+    def fight(self, combat_item: list[str]):
+        """
+        Fight the boss using a combat item.
+
+        Args:
+            combat_items (list): Names of items used to fight.
+        Returns:
+            bool: True if defeated, False if player dies.
+        """
+        combat_item.sort()
+        print()
+        if combat_item == self.weakness:
+            print(
+                "After a long and arduous battle,\n"
+                "wherein you narrowly escaped death multiple times,\n"
+                "you have finally defeated the dragon!\n"
+                "You have liberated the caves from its tyranny!\n\n"
+                "The cavespeople are eternally grateful!\n"
+                "They throw you an extravagant feast, featuring a suspiciously slimey dish\n"
+                "and a cake that could well have been baked in a forge,\n"
+                "among a spread of mouth-watering dishes!"
+            )
+            print()
+            print("YOU WIN!")
+            return True
+        print(
+            f"After a long and arduous battle,\n"
+            f"you have been defeated by {self.name}.\n"
+            "You feel a cold sensation as you realize that this is the end.\n"
+            "Your vision fades to black as you succumb to your wounds.\n"
+            "You have failed to liberate the caves from its tyranny.\n"
+            "The cavespeople mourn your loss.\n"
+            "They hold a somber ceremony in your honor,\n"
+            "and erect a statue in the town square to commemorate your bravery."
+        )
+        print()
+        death_screen()
+        return False

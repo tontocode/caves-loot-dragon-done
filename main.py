@@ -1,7 +1,7 @@
 """Main module for the adventure game."""
 
 from cave import Cave
-from character import Person, Enemy
+from character import Person, Enemy, Boss
 from item import Item
 
 instructions = [
@@ -64,6 +64,7 @@ cavern = Cave("cavern")
 grotto = Cave("grotto")
 dungeon = Cave("dungeon")
 lair = Cave("lair")
+swamp = Cave("swamp")
 
 cavern.set_description("A damp and dirty cave.")
 grotto.set_description(
@@ -75,16 +76,22 @@ lair.set_description(
     "An ominous cave shining with treasures.\n"
     "The air is thick with smoke and the ground trembles."
 )
+swamp.set_description(
+    "A murky cave filled with swampy water and fluorescent fungi.\n"
+    "The air is filled with the stench of decay."
+)
 
-# cavern(start)
-# grotto         dungeon
-# lair
+#          cavern(start)
+# swamp    grotto         dungeon
+#          lair
 cavern.link_cave(grotto, "south")
 grotto.link_cave(cavern, "north")
-dungeon.link_cave(grotto, "east")
-grotto.link_cave(dungeon, "west")
+dungeon.link_cave(grotto, "west")
+grotto.link_cave(dungeon, "east")
 lair.link_cave(grotto, "north")
 grotto.link_cave(lair, "south")
+swamp.link_cave(grotto, "east")
+grotto.link_cave(swamp, "west")
 
 
 # Items
@@ -95,6 +102,11 @@ belinda = Item("Belinda", "A sturdy hammer, a blacksmith's best friend.")
 dragon_slayer = Item(
     "dragon slaying sword",
     "An excellent sword crafted by the master blacksmith, Senshi.",
+)
+frog_hide = Item(
+    "frog hide",
+    "A tough hide. Solid substitute for armour, "
+    "with the added benefit of immunity from insect bites.",
 )
 
 # People
@@ -117,22 +129,7 @@ harry_conversation_dict = {
         "I trust the water bomb will help you against the dragon."
     ),
 }
-harry_conversation_dict = {
-    "pre_gift": (
-        "Hello. I am writing a PhD on the hostile blue slimes that can be found in grottos.\n"
-        "The damn dragon has been stealing my research samples!\n"
-        "Leave me alone unless you have some slime remains to give me.\n"
-        "I can get you something useful if you do."
-    ),
-    "grateful": (
-        "Huh. You got me some good-quality slime remains. Not half-bad.\n"
-        "Here, have this. It's a useful thing.\n"
-        "It'll explode with high-pressure water upon impact.\n"
-        "I've been using these to try fend off the dragon whenever it gets near my research base."
-    ),
-    "ungrateful": "What is this? I'm only interested in slimes. What a bother.",
-    "post_gift": "Hey. How's it going. Good luck in your quest against the dragon.",
-}
+
 harry = Person(
     name="Harry",
     description="A young researcher.",
@@ -144,8 +141,9 @@ senshi_conversation_dict = {
     "pre_gift": (
         "Hey there! Your sword is looking a little damaged...\n"
         "I'm a blacksmith, want a new one?\n"
-        "That damned dragon's minion stole my dear Belinda though...\n"
-        "I'm gonna need her back to make you a good sword."
+        "That damned frog stole my dear Belinda though...\n"
+        "That dragon's drawn all sorts of monsters here.\n"
+        "I'm gonna need my trusty hammer back to make you a good sword."
     ),
     "gratitude": (
         "Thank you. I'll make you a top-notch sword. Just wait.\n"
@@ -174,26 +172,42 @@ sledge = Enemy(
 )
 sledge.set_conversation("Hangry...Hanggrry...")
 
+kermit = Enemy(
+    "Kermit",
+    "A green frog the size of a Great Dane with bulging eyes and a wide mouth.",
+    "torch",
+    frog_hide,
+)
+
+# Boss dragon
+ifir = Boss(
+    "Ifir",
+    "A massive red dragon with scales as hard as steel and burning ruby eyes.",
+    ["dragon slaying sword", "water bomb"],
+)
+
 # Put things in caves
 grotto.set_character(sledge)
 cavern.set_item(torch)
 cavern.set_character(harry)
 dungeon.set_character(senshi)
+lair.set_character(ifir)
+swamp.set_character(kermit)
+swamp.set_item(belinda)
 
-current_cave = cavern
 
 # Inventory
 inventory = []
 
 
 def inventory_names():
-    """Return a dictionary of item name to item description for each item in the inventory."""
-    return {item.get_name(): item.get_description() for item in inventory}
+    """Return a dictionary of lowercase item name to item description for each item in the inventory."""
+    return {item.get_name().lower(): item.get_description() for item in inventory}
 
 
 def show_inventory():
     """Show a humanized list of inventory items, then ask to show descriptions of any item."""
-    names_list = list(inventory_names().keys())
+    names_list = [item.get_name() for item in inventory]
     match len(inventory):
         case 0:
             print("You have nothing in your inventory.")
@@ -205,23 +219,30 @@ def show_inventory():
             )
     show_descriptions = input("Do you want to see the description of any items? y/n\n")
     if show_descriptions == "y":
-        item_name = "item name"
+        item_name = input("\nWhich item? Type none to exit.\n").strip().lower()
         while item_name != "none":
-            item_name = input("Which item? Type none to exit.\n").strip().lower()
             if item_name in inventory_names():
                 print(inventory_names()[item_name])
             else:
                 print("This item is not in your inventory.")
+            item_name = input("\nWhich item? Type none to exit.\n").strip().lower()
     else:
         print("Alright.")
 
+# Health
+health = 3
 
-# IMPORANT: DEVELOPMENT MODE
-# inventory.append(slime_remains)
+# Status
+current_cave = cavern
+# IMPORTANT: DEVELOPMENT MODE
+# inventory.append(torch)
+# inventory.append(water_bomb)
+# inventory.append(dragon_slayer)
 
 # IMPORTANT: uncomment the lines below when not in development
 # tutorial()
 # input()
+
 while True:
     print("---")
     print()
@@ -236,11 +257,14 @@ while True:
 
     print()
     match COMMAND:
-        case "quit" | "exit" | "end":
+        case "quit" | "exit" | "end" | "leave":
             break
         case "move" | "go":
-            direction = input("What direction do you want to go in?\n").strip().lower()
-            current_cave = current_cave.move(direction)
+            if len(current_cave.linked_caves) > 1:
+                direction = input("What direction do you want to go in?\n").strip().lower()
+                current_cave = current_cave.move(direction)
+            else:
+                current_cave = current_cave.move(list(current_cave.linked_caves.keys())[0])
         case "talk" | "speak":
             if inhabitant:
                 inhabitant.talk()
@@ -250,7 +274,29 @@ while True:
             if not inventory:
                 print("You have nothing in your inventory to fight with.")
             elif not inhabitant:
-                print("There is nothing to fight in this cave.")
+                print("There is no-one to fight in this cave.")
+            elif isinstance(inhabitant, Boss):
+                combat_items = (
+                    input(
+                        "You have chosen to face Ifir, the dragon!\n"
+                        "You will need 2 items to defeat this formiddable foe.\n"
+                        "What shall you choose, brave adventurer?\n"
+                        "(Separate items with a comma and a space, e.g. item1, item2)\n"
+                    )
+                    .strip()
+                    .lower()
+                ).split(", ")
+                if len(combat_items) != 2:
+                    print("You must choose exactly 2 items.")
+                else:
+                    CONTINUE_FIGHT = True
+                    for item in combat_items:
+                        if item not in inventory_names():
+                            print(f"{item} is not in your inventory.")
+                            CONTINUE_FIGHT = False
+                    if CONTINUE_FIGHT:
+                        inhabitant.fight(combat_items)
+                        break
             else:
                 combat_item = (
                     input(
@@ -260,6 +306,7 @@ while True:
                     .strip()
                     .lower()
                 )
+
                 if combat_item not in inventory_names():
                     print("That item is not in your inventory.")
                 else:
@@ -269,12 +316,14 @@ while True:
                         inventory.append(loot)
                     else:
                         break
-        case "pickup" | "pick up":
+        case "pickup" | "pick up" | "get":
             if item:
                 if inhabitant and isinstance(inhabitant, Enemy):
                     print(
-                        f"You cannot pick up the {item.get_name()} until you defeat the enemy."
+                        f"You reach for the {item.get_name()}, "
+                        f"only for {inhabitant.get_name()} to attack you!"
                     )
+                    health -= 1
                 else:
                     inventory.append(item)
                     item.pickup()
@@ -311,9 +360,18 @@ while True:
 
         case "inventory" | "inv" | "show inventory" | "show inv" | "bag":
             show_inventory()
+            continue  # avoid "Press enter to continue" after showing inventory
         case "?" | "help" | "tutorial":
             tutorial()
         case _:
             print("You cannot do that.")
 
+    if health <= 0:
+        print()
+        print("After a series of misadventures, you have succumbed to your injuries.")
+        print()
+        print("***")
+        print("YOU HAVE DIED")
+        print("***")
+        break
     input()
