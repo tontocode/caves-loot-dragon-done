@@ -1,25 +1,22 @@
 """Module containing the Character, Person, and Enemy classes."""
 
-def death_screen():
-    """Display the death screen message."""
-    print("***")
-    print("YOU HAVE DIED")
-    print("***")
+from utilities import death_screen
+import health
 
 
 class Character:
     """Base class for all characters in the game."""
 
-    def __init__(self, name: str, description: str):
+    def __init__(self, name: str, messages: dict):
         """
         Initialize a Character object.
 
         Args:
             name (str): Character's name.
-            description (str): Character's description.
+            messages (dict): Character's messages.
         """
         self.name = name
-        self.description = description
+        self.messages = messages
         self.conversation = None
 
     def set_conversation(self, conversation: str):
@@ -34,10 +31,11 @@ class Character:
     def describe(self):
         """Print the character's presence and description."""
         print(f"{self.name} is here.")
-        print(self.description)
+        print(self.messages["description"])
 
     def talk(self):
         """Print the character's conversation or a default message."""
+        print()
         if self.conversation is not None:
             print(f"{self.name}: {self.conversation}")
         else:
@@ -51,22 +49,18 @@ class Character:
 class Person(Character):
     """Class for non-enemy people in the game."""
 
-    def __init__(
-        self, *, name: str, description: str, conversations: dict, quest_items: list
-    ):
+    def __init__(self, name: str, messages: dict, quest_items: list):
         """
         Initialize a Person object.
 
         Args:
             name (str): Person's name.
-            description (str): Description of the person.
-            conversations (dict): Conversation states.
-                (strings pre_gift, grateful, ungrateful, post_gift as keys)
+            messages (dict): Conversation states.
+                (strings description, pre_gift, grateful, ungrateful, post_gift as keys)
             quest_items (list): The item the person wants, the item given in exchange.
         """
-        super().__init__(name, description)
-        self.conversation_dict = conversations
-        self.conversation = conversations["pre_gift"]
+        super().__init__(name, messages)
+        self.conversation = messages["pre_gift"]
         self.gift_item = quest_items[0]
         self.reward_item = quest_items[1]
         self.affinity = 0
@@ -81,15 +75,15 @@ class Person(Character):
             reward item or None
         """
         if item_name == self.gift_item.get_name():
-            self.set_conversation(self.conversation_dict["grateful"])
+            self.set_conversation(self.messages["grateful"])
             self.talk()
             self.affinity += 1
-            self.set_conversation(self.conversation_dict["post_gift"])
+            self.set_conversation(self.messages["post_gift"])
             return self.reward_item
-        self.set_conversation(self.conversation_dict["ungrateful"])
+        self.set_conversation(self.messages["ungrateful"])
         self.talk()
         self.affinity -= 1
-        self.set_conversation(self.conversation_dict["pre_gift"])
+        self.set_conversation(self.messages["pre_gift"])
         return None
 
     def fight(self, combat_item: str):
@@ -101,26 +95,28 @@ class Person(Character):
         Returns:
             bool: True always (for game logic).
         """
-        print(f"Ouch! Don't fight me! Put that {combat_item} away!")
+        print(f"\nOuch! Don't fight me! Put that {combat_item} away!")
         return True
 
 
 class Enemy(Character):
     """Class for enemy characters in the game."""
 
-    def __init__(self, name: str, description: str, weakness, drop):
+    def __init__(self, name: str, messages: dict, weakness, drop):
         """
         Initialize an Enemy object.
 
         Args:
             name (str): Enemy's name.
-            description (str): Description of the enemy.
+            messages (dict): Enemy's messages.
+                (strings description, pre_fight, attack_success, attack_failure as keys)
             weakness (str): Name of the item that defeats the enemy.
             drop (Item): Item dropped by the enemy when defeated.
         """
-        super().__init__(name, description)
+        super().__init__(name, messages)
         self.weakness = weakness
         self.is_enemy = True
+        self.messages = messages
         self.drop = drop
 
     def get_weakness(self):
@@ -137,12 +133,13 @@ class Enemy(Character):
             Item or bool: Item if defeated, False if player dies.
         """
         if combat_item.lower() == self.weakness:
-            print(f"You fend {self.name} off with the {combat_item}.")
+            print()
+            print(self.messages["attack_success"])
             if self.drop:
                 print(f"You have obtained {self.drop.get_name()}!")
             return self.drop
-        print(f"{self.name} swallows you, little wimp.")
-        death_screen()
+        print(f"\n{self.messages['attack_failure']}")
+        health.health = health.update(-2)
         return False
 
     def give(self, give_item_name: str):
@@ -154,19 +151,20 @@ class Enemy(Character):
         Returns:
             bool: False (player dies).
         """
+        give_item_name = give_item_name.lower()
         print(
-            f"{self.name} reacts aggressively and attacks you. Unprepared, you cannot fight back."
-            f"Your {give_item_name} is destroyed."
+            f"{self.name} reacts aggressively and attacks you. "
+            "Unprepared, you cannot fight back."
         )
-        print(f"{self.name} swallows you, little wimp.")
-        death_screen()
+        print(self.messages["attack_failure"])
+        health.health = health.update(-2)
         return False
 
 
 class Boss(Enemy):
     """Class for the boss enemy (dragon)."""
 
-    def __init__(self, name, description, weakness: list[str], drop=None):
+    def __init__(self, name: str, weakness: list[str], messages: dict, drop=None):
         """
         Initialize a Boss object.
 
@@ -175,7 +173,7 @@ class Boss(Enemy):
             description (str): Description of the boss.
             weaknesses (list of strings): Item names that defeat the boss.
         """
-        super().__init__(name, description, weakness, drop)
+        super().__init__(name=name, messages=messages, weakness=weakness, drop=drop)
         self.weakness.sort()
         self.is_boss = True
 
@@ -191,29 +189,11 @@ class Boss(Enemy):
         combat_item.sort()
         print()
         if combat_item == self.weakness:
-            print(
-                "After a long and arduous battle,\n"
-                "wherein you narrowly escaped death multiple times,\n"
-                "you have finally defeated the dragon!\n"
-                "You have liberated the caves from its tyranny!\n\n"
-                "The cavespeople are eternally grateful!\n"
-                "They throw you an extravagant feast, featuring a suspiciously slimey dish\n"
-                "and a cake that could well have been baked in a forge,\n"
-                "among a spread of mouth-watering dishes!"
-            )
+            print(self.messages["attack_success"])
             print()
             print("YOU WIN!")
             return True
-        print(
-            f"After a long and arduous battle,\n"
-            f"you have been defeated by {self.name}.\n"
-            "You feel a cold sensation as you realize that this is the end.\n"
-            "Your vision fades to black as you succumb to your wounds.\n"
-            "You have failed to liberate the caves from its tyranny.\n"
-            "The cavespeople mourn your loss.\n"
-            "They hold a somber ceremony in your honor,\n"
-            "and erect a statue in the town square to commemorate your bravery."
-        )
+        print(self.messages["attack_failure"])
         print()
         death_screen()
         return False

@@ -1,62 +1,78 @@
 """Main module for the adventure game."""
 
+import os
+
+from termcolor import colored, cprint
+
 from cave import Cave
 from character import Person, Enemy, Boss
 from item import Item
+import health
+
+try:
+    terminal_size = os.get_terminal_size()
+    terminal_width = terminal_size.columns
+    DASHES = colored("-" * terminal_width, "green")
+except OSError:
+    DASHES = colored("-" * 25, "green")
+
 
 instructions = [
-    """
-Please read this tutorial in detail!
-
-This is a text-based adventure game set in a cave system. 
-The caves are all connected, and you can move between them.
-In some caves, there are people, enemies and/or items. 
-
-A dragon has been terrorising the cave system, stealing treasures and harming the inhabitants.
-You are a brave adventurer exploring these caves. 
-Your righteous sense of justice drives you to slay the dragon. 
-Help the people and you shall be rewarded.
-""",
-    """
-Here are a few of the commands you can use. 
-
-Type move to move to a connected cave.
-Type inventory to see your inventory.
-    You may then choose to view an item's description. (Which may contain a hint!)
-    Obviously, you can only give/fight with items from your inventory. 
-Type ? to show the tutorial.
-Type quit to quit the game. 
-""",
-    """
-In a cave with a person:
-    Type talk to talk with them.
-        They may be in need of something!
-    Type give to give something to them.
-In a cave with an enemy:
-    Type talk to talk with them.
-    Type fight to fight them using an item. 
-        Make sure this item is something that will work against them though!
-        If it does, you'll be able to defeat them and claim some nice loot, otherwise its GAME OVER.
-        Be careful about giving an item to an enemy!
-In a cave with an item: 
-    Type pickup to pick the item up and add it to your inventory.
-""",
-    """
-After completing an action (e.g. talking to someone, picking up an item), press enter to continue. 
-This is to avoid having excessive "Press enter to continue" statements.
-
-Please be careful about typos, as the game is quite space-sensitive and unintelligent.
-""",
+    (
+        "Please read this tutorial in detail!\n"
+        "\n"
+        "This is a text-based adventure game set in a cave system. "
+        "The caves are all connected, and you can move between them.\n"
+        "In some caves, there are people, enemies and/or items.\n"
+        "\n"
+        "A dragon has been terrorising the cave system, "
+        "stealing treasures and harming the inhabitants.\n"
+        "You are a brave adventurer exploring these caves.\n"
+        "Your righteous sense of justice drives you to slay the dragon.\n"
+        "Help the people and you shall be rewarded.\n"
+    ),
+    (
+        "Here are a few of the commands you can use.\n"
+        "\n"
+        "Type move to move to a connected cave.\n"
+        "Type inventory to see your inventory.\n"
+        "   You may then choose to view an item's description. (Which may contain a hint!)\n"
+        "   Obviously, you can only give/fight with items from your inventory.\n"
+        "Type ? to show the tutorial.\n"
+        "Type quit to quit the game.\n"
+    ),
+    (
+        "In a cave with a person:\n"
+        "   Type talk to talk with them.\n"
+        "       They may be in need of something!\n"
+        "   Type give to give something to them.\n"
+        "In a cave with an enemy:\n"
+        "   Type talk to talk with them.\n"
+        "   Type fight to fight them using an item.\n"
+        "       Make sure this item is something that will work against them though!\n"
+        "       If it does, you'll be able to defeat them and claim some nice loot!\n"
+        "       Be careful about giving an item to an enemy!\n"
+        "In a cave with an item:\n"
+        "   Type pickup to pick the item up and add it to your inventory.\n"
+    ),
+    (
+        "After completing an action (e.g. talking to someone, picking up an item), "
+        "press enter to continue.\n"
+        'This is to avoid having excessive "Press enter to continue" statements.\n'
+        "\n"
+        "Please be careful about typos, as the game is space-sensitive and unintelligent.\n"
+    ),
 ]
 
 
 def tutorial():
     """Show the tutorial instructions."""
     for section in instructions:
-        print("\n---")
+        print(f"\n{DASHES}\n")
         print(section)
         input("Press enter to continue")
-    print("\n---\n\nI hope you have fun playing this!")
+    print(f"\n{DASHES}\n")
+    cprint("I hope you have fun playing this!", "magenta")
 
 
 # Caves
@@ -108,19 +124,22 @@ frog_hide = Item(
     "A tough hide. Solid substitute for armour, "
     "with the added benefit of immunity from insect bites.",
 )
+damaged_sword = Item("damaged sword", "A sword broken in half. Unusable.")
 
 # People
-harry_conversation_dict = {
+harry_messages = {
+    "description": "A young researcher.",
     "pre_gift": (
-        "Hello. I am writing a PhD on the hostile blue slimes that can be found in grottos.\n"
+        "Hello. I am writing up a PhD on the hostile blue slimes that can be found in grottos.\n"
         "The dragon's been making my work difficult, stealing samples and causing trouble.\n"
         "You look like a solid adventurer.\n"
-        "You bring me some slime remains, I'll get you something to help against the dragon.\n"
+        "You bring me some slime remains, "
+        "I'll get you something to help you fight against the dragon.\n"
         "Otherwise, leave me alone."
     ),
     "grateful": (
         "Ah, these are excellent slime remains—just what I needed for my research.\n"
-        "Here, take this water bomb. It's proven handy for keeping the dragon at bay.\n"
+        "Here, take this water bomb. It's proven itself effective against the dragon.\n"
         "Use it wisely on your quest."
     ),
     "ungrateful": "What is this? I'm only interested in slimes. What a bother.",
@@ -132,12 +151,12 @@ harry_conversation_dict = {
 
 harry = Person(
     name="Harry",
-    description="A young researcher.",
-    conversations=harry_conversation_dict,
+    messages=harry_messages,
     quest_items=[slime_remains, water_bomb],
 )
 
-senshi_conversation_dict = {
+senshi_messages = {
+    "description": "An experienced dwarf blacksmith.",
     "pre_gift": (
         "Hey there! Your sword is looking a little damaged...\n"
         "I'm a blacksmith, want a new one?\n"
@@ -158,32 +177,82 @@ senshi_conversation_dict = {
 }
 senshi = Person(
     name="Senshi",
-    description="An experienced dwarf blacksmith.",
-    conversations=senshi_conversation_dict,
+    messages=senshi_messages,
     quest_items=[belinda, dragon_slayer],
 )
 
 # Enemies
+sledge_messages = {
+    "description": "A wet blue slime emitting a low growl as it slides around.",
+    "attack_success": (
+        "You jab the torch into the slime. Steam hisses out.\n"
+        "Sledge recoils and dissolves into a puddle of goo."
+    ),
+    "attack_failure": (
+        "The slime oozes around you, its acidic touch burning your skin."
+        "You manage to withdraw from it, but it leaves a painful sting."
+    ),
+}
 sledge = Enemy(
-    "Sledge",
-    "A wet blue slime emitting a low growl as it slides around.",
-    "torch",
-    slime_remains,
+    name="Sledge",
+    weakness="torch",
+    messages=sledge_messages,
+    drop=slime_remains,
 )
 sledge.set_conversation("Hangry...Hanggrry...")
 
+kermit_messages = {
+    "description": "A green frog the size of a horse with bulging eyes and a wide mouth.",
+    "attack_success": (
+        "You ram the torch into the soft belly of the frog.\n"
+        "It croaks loudly in pain, and the light leaves its eyes."
+    ),
+    "attack_failure": "The frog's tongue lashes out like a whip, hitting your arm harshly.",
+}
 kermit = Enemy(
-    "Kermit",
-    "A green frog the size of a Great Dane with bulging eyes and a wide mouth.",
-    "torch",
-    frog_hide,
+    name="Kermit",
+    weakness="torch",
+    messages=kermit_messages,
+    drop=frog_hide,
 )
 
 # Boss dragon
+ifir_messages = {
+    "description": "A massive red dragon with scales as hard as steel and burning ruby eyes.",
+    "attack_success": (
+        "Gulping, you brace yourself for the fight.\n"
+        "You grip the hilt of the dragon slaying sword tightly.\n"
+        "In your other hand, you hold the water bomb.\n"
+        "The dragon roars at you, tail lashing around, "
+        "standing its ground in front of its treasure hoard.\n\n"
+        "You roll to dodge its fire breath, and throw the water bomb into its eye.\n"
+        "With a furious roar, the dragon rears back, momentarily blinded.\n"
+        "After a series of daring exchanges between its claws and your sword, "
+        "you plunge the dragon slaying sword into Ifir's heart.\n"
+        "With a deafening roar, the dragon collapses.\n"
+        "You have finally defeated the dragon!\n\n"
+        "You have liberated the caves from its tyranny!\n\n"
+        "The cavespeople are eternally grateful.\n"
+        "They throw you an extravagant feast, featuring a suspiciously slimey dish\n"
+        "and a cake that could well have been baked in a forge,\n"
+        "among a spread of mouth-watering dishes!"
+    ),
+    "attack_failure": (
+        "After a long and arduous battle, you have been defeated by Ifir.\n"
+        "Its unrelenting claws target your weak points, its breath cutting off your escape.\n"
+        "You cannot pierce its heart.\n"
+        "Chills run through you as you realize that this is the end.\n"
+        "Your vision fades to black as you succumb to your wounds.\n\n"
+        "You have failed to liberate the caves from its tyranny.\n"
+        "The cavespeople mourn your loss.\n"
+        "They hold a somber ceremony in your honor,\n"
+        "and erect a statue of you in the town square, forever immortalizing your bravery."
+    ),
+}
 ifir = Boss(
-    "Ifir",
-    "A massive red dragon with scales as hard as steel and burning ruby eyes.",
-    ["dragon slaying sword", "water bomb"],
+    name="Ifir",
+    weakness=["dragon slaying sword", "water bomb"],
+    messages=ifir_messages,
 )
 
 # Put things in caves
@@ -197,11 +266,12 @@ swamp.set_item(belinda)
 
 
 # Inventory
-inventory = []
+inventory = [damaged_sword]
 
 
 def inventory_names():
-    """Return a dictionary of lowercase item name to item description for each item in the inventory."""
+    """Return a dictionary of lowercase item name to item description
+    for each item in the inventory."""
     return {item.get_name().lower(): item.get_description() for item in inventory}
 
 
@@ -229,8 +299,6 @@ def show_inventory():
     else:
         print("Alright.")
 
-# Health
-health = 3
 
 # Status
 current_cave = cavern
@@ -240,12 +308,11 @@ current_cave = cavern
 # inventory.append(dragon_slayer)
 
 # IMPORTANT: uncomment the lines below when not in development
-# tutorial()
-# input()
+tutorial()
+input()
 
 while True:
-    print("---")
-    print()
+    print(f"{DASHES}\n")
     print("You are in:")
     current_cave.get_details()
     inhabitant = current_cave.get_character()
@@ -253,7 +320,8 @@ while True:
 
     COMMAND = ""
     while COMMAND == "":
-        COMMAND = input("What do you want to do?\n").strip().lower()
+        prompt = colored("What do you want to do?\n", "cyan")
+        COMMAND = input(prompt).strip().lower()
 
     print()
     match COMMAND:
@@ -261,10 +329,14 @@ while True:
             break
         case "move" | "go":
             if len(current_cave.linked_caves) > 1:
-                direction = input("What direction do you want to go in?\n").strip().lower()
+                direction = (
+                    input("What direction do you want to go in?\n").strip().lower()
+                )
                 current_cave = current_cave.move(direction)
             else:
-                current_cave = current_cave.move(list(current_cave.linked_caves.keys())[0])
+                current_cave = current_cave.move(
+                    list(current_cave.linked_caves.keys())[0]
+                )
         case "talk" | "speak":
             if inhabitant:
                 inhabitant.talk()
@@ -323,7 +395,7 @@ while True:
                         f"You reach for the {item.get_name()}, "
                         f"only for {inhabitant.get_name()} to attack you!"
                     )
-                    health -= 1
+                    health.health = health.update(-1)
                 else:
                     inventory.append(item)
                     item.pickup()
@@ -341,22 +413,13 @@ while True:
                     .strip()
                     .lower()
                 )
-                print()
                 if give_item_name not in inventory_names():
-                    print("That item is not in your inventory.")
+                    print("\nThat item is not in your inventory.")
                 else:
                     give_result = inhabitant.give(give_item_name)
-                    print()
                     if give_result:
                         inventory.append(give_result)
                         give_result.obtain()
-                    elif give_result is False:
-                        break
-                    elif give_result is None:
-                        pass
-                    else:
-                        print(f"{give_result=}")
-                        print("Improper give result.")
 
         case "inventory" | "inv" | "show inventory" | "show inv" | "bag":
             show_inventory()
@@ -366,12 +429,4 @@ while True:
         case _:
             print("You cannot do that.")
 
-    if health <= 0:
-        print()
-        print("After a series of misadventures, you have succumbed to your injuries.")
-        print()
-        print("***")
-        print("YOU HAVE DIED")
-        print("***")
-        break
     input()

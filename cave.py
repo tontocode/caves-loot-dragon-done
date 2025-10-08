@@ -139,8 +139,11 @@ class Cave:
                   or the current cave if movement is not possible.
         """
         if direction in self.linked_caves:
-            print(f"You have moved to the {self.linked_caves[direction].get_name()}")
+            print(
+                f"You wander through a tunnel and reach the "
+                f"{self.linked_caves[direction].get_name()}."
+            )
             return self.linked_caves[direction]
-        print("You can't go that way.")
+        print("There is no path in that direction.")
         print(f"You are still in the {self.get_name()}.")
         return self
